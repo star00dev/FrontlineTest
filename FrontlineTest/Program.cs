@@ -12,62 +12,140 @@ namespace FrontlineTest
             Console.WriteLine("Program started!");
 
             string inputString = @"(id,created,employee(id,firstname,employeeType(id), lastname),location)";
-            FrontlineAnswer answer = new FrontlineAnswer(inputString);
-            answer.PrintOrgChart(answer.GetOrgChart());
+            //FrontlineAnswer answer = new FrontlineAnswer(inputString);
+            //answer.PrintAttrubutes(answer.ProcessInput());
+
+            Answer answer = new Answer(inputString);
+            var node = answer.BuildTreeFromString();
+            answer.PrintTree(node);
         }
     }
-    public class Attrubute {
+    public class Attrubute
+    {
         public string Name { get; set; }
         public int Depth { get; set; }
+        public int Index { get; set; }
+        public List<Attrubute> Children { get; set; }
 
-        public Attrubute() {
+        public Attrubute()
+        {
             this.Depth = 0;
+            this.Children = new List<Attrubute>();
         }
     }
 
-    public class FrontlineAnswer {
+    public class FrontlineAnswer
+    {
 
         private string _inputString = String.Empty;
+        private int maxDepth = 0;
 
         public FrontlineAnswer(string inputString)
         {
             this._inputString = inputString;
         }
 
-        public List<Attrubute> GetOrgChart() {
-            List<Attrubute> results = new List<Attrubute>();
+        public Attrubute ProcessInput()
+        {
             string processingInput = this._inputString;
-            string objPattern = @"([(][a-zA-Z0-9, ]*[)])";
+            string objPattern = @"([(][a-zA-Z0-9, ()]*[)])";
             Regex regx = new Regex(objPattern);
-            int depth = 1;
-            while (processingInput.Length > 0) {
-                foreach (Match match in Regex.Matches(processingInput, objPattern))
+            int depth = 0;
+            Attrubute prevNode = null;
+            while (processingInput.Length > 0)
+            {
+
+                var matches = Regex.Matches(processingInput, objPattern);
+                if (matches.Count > 0)
                 {
-                    string[] attsArray = match.Groups[1].Value.Replace("(", "").Replace(")", "").Replace(", ", ",").Replace(" ,", ",").Split(",".ToCharArray());
-                    foreach (string att in attsArray)
+                    var newNode = new Attrubute();
+
+                    if (prevNode != null)
+                        newNode.Children.Add(prevNode);
+
+                    foreach (Match match in matches)
                     {
-                        results.Add(new Attrubute
+                        string[] attsArray = match.Groups[1].Value.Replace("(", "").Replace(")", "").Replace(", ", ",").Replace(" ,", ",").Split(",".ToCharArray());
+                        foreach (string att in attsArray)
                         {
-                            Depth = depth,
-                            Name = att
-                        });
+                            if (!string.IsNullOrEmpty(att))
+                            {
+                                newNode.Children.Add(new Attrubute
+                                {
+                                    Depth = depth,
+                                    Name = att
+                                });
+                            }
+                        }
                     }
+                    prevNode = newNode;
+                    depth++;
+                    processingInput = regx.Replace(processingInput, "").Replace(",,", ",");
                 }
-                depth++;
-                processingInput = regx.Replace(processingInput, "").Replace(",,", ",");
             }
-            return results;
+            maxDepth = depth - 1;
+
+            return prevNode;
         }
 
-        public void PrintOrgChart(List<Attrubute> attList) {
-            int maxDepth = attList.OrderByDescending(emp => emp.Depth).First().Depth;
+        public void PrintAttrubutes(Attrubute root, bool bonus = true)
+        {
+            Console.WriteLine();
+            Console.WriteLine("-------Result----------");
+            Console.WriteLine("Name:{0} maxDepth: {1} Depth: {2}", root.Name, maxDepth, root.Depth);
 
-
-            var displayList = attList.OrderByDescending(tmp => tmp.Depth).ThenBy(tmp => tmp.Name).ToList();
-            foreach (Attrubute att in displayList)
+            foreach (Attrubute node in root.Children)
             {
-                Console.WriteLine("{0}{1}", new String('-', maxDepth - att.Depth), att.Name);
+                Console.WriteLine("Name:{0} maxDepth: {1} Depth: {2}", node.Name, maxDepth, node.Depth);
             }
+
+
+            Console.WriteLine("--------------------------");
+            PrintNode(root);
+
+
+            if (bonus)
+            {
+                Console.WriteLine();
+                Console.WriteLine("-------Bonus----------");
+            }
+        }
+
+        private void PrintNode(Attrubute node)
+        {
+            if (node.Children.Count > 0)
+            {
+                Console.WriteLine("Name:{0} maxDepth: {1} Depth: {2}", node.Name, maxDepth, node.Depth);
+                foreach (var tmpNode in node.Children)
+                {
+                    Console.WriteLine("Name:{0} maxDepth: {1} Depth: {2}", node.Name, maxDepth, node.Depth);
+                    PrintNode(tmpNode);
+                }
+            }
+
+            //node.Depth = (maxDepth - node.Depth);
+
+            //Console.WriteLine("{0}{1}", new string('-', maxDepth-node.Depth), node.Name);
+            Console.WriteLine("Name:{0} maxDepth: {1} Depth: {2}", node.Name, maxDepth, node.Depth);
+        }
+
+        private List<Attrubute> AssignOrginalIndex(List<Attrubute> results)
+        {
+            int maxDepth = results.OrderByDescending(emp => emp.Depth).First().Depth;
+            foreach (var att in results)
+            {
+                var matches = Regex.Matches(this._inputString, $"{att.Name}");
+
+                //reverse the depth order
+                att.Depth = maxDepth - att.Depth;
+
+                //assign the origianl index
+                if (att.Depth <= 0 || matches.Count == 1)
+                    att.Index = matches[0].Index;
+                else
+                    att.Index = matches[att.Depth].Index;
+            }
+            return results;
         }
     }
 }
