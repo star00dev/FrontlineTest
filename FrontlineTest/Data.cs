@@ -9,6 +9,7 @@ namespace FrontlineTest
     public class Data {
         public string Name { get; set; }
         public int Depth { get; set; }
+        public int Index { get; set; }
         public List<Data> Children { get; set; }
 
         public Data()
